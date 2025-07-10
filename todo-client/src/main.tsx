@@ -1,0 +1,22 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import App from './App.tsx';
+import { ApolloClient, InMemoryCache, ApolloProvider } from '@apollo/client';
+
+const cachetype = new InMemoryCache(
+  // どのクエリーに対してキャッシュを効かせるか
+);
+
+const apolloclient = new ApolloClient( {
+  uri: "http://localhost:4000", // graphql-serveで作ったapollo-server
+  cache: cachetype,
+} );
+
+createRoot( document.getElementById( 'root' )! ).render(
+  <StrictMode>
+    <ApolloProvider client={ apolloclient }>
+      <App />
+    </ApolloProvider>
+  </StrictMode>,
+);
