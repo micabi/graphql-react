@@ -2,7 +2,7 @@ import { ApolloServer } from "@apollo/server";
 import { startStandaloneServer } from "@apollo/server/standalone";
 import { PrismaClient } from "@prisma/client";
 import { type typeTodo, type Resolvers } from "./types/types";
-import {typeDefs} from "./graphql/typedefs";
+import { typeDefs } from "./graphql/typedefs";
 
 // const todos: typeTodo[] = [
 //   {
@@ -33,6 +33,7 @@ const resolvers: Resolvers = {
     // getTodos: (): typeTodo[] => todos
 
     getTodos: async ( _: typeTodo, __: typeTodo[], context: Context ): Promise<{ id: number, title: string, completed: boolean; }[]> => {
+      // sql文を直接操作するのではなく、prismaのメソッドを介して操作する。
       const todos: typeTodo[] = await context.prismaInstance.todo.findMany();
 
       // DBから取ってきて必要なものだけ使う
@@ -136,14 +137,22 @@ const apolloserver = new ApolloServer( {
   resolvers,
 } );
 
+
 async function listenServer (): Promise<void> {
   const { url } = await startStandaloneServer( apolloserver, {
-    listen: { port: 4000 },
-    context: async (): Promise<{prismaInstance: PrismaClient}> => ( { prismaInstance } )
+    context: async (): Promise<{ prismaInstance: PrismaClient; }> => ( { prismaInstance } ),
+    listen: {
+      port: 4000,
+    },
   } );
-
-
   console.log( `Server ready at: ${ url }` );
 }
 
 listenServer();
+
+// const { url } = await startStandaloneServer( apolloserver, {
+//   context: async (): Promise<{ prismaInstance: PrismaClient; }> => ( { prismaInstance } ),
+//   listen: {port: 4000,},
+// } );
+
+// console.log( `Server ready at: ${ url }` );
