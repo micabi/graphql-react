@@ -9,7 +9,7 @@ const cachetype = new InMemoryCache(
 );
 
 const apolloclient = new ApolloClient( {
-  uri: "http://localhost:4000", // graphql-serveで作ったapollo-server
+  uri: "http://localhost:5555/todos", // graphql-serveで作ったapollo-server
   cache: cachetype,
 } );
 

@@ -1,8 +1,13 @@
 import { ApolloServer } from "@apollo/server";
-import { startStandaloneServer } from "@apollo/server/standalone";
+// import { startStandaloneServer } from "@apollo/server/standalone";
+import express  from "express";
+import { createServer } from "http";
+import { expressMiddleware } from "@as-integrations/express5";
+import cors from "cors";
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { type typeTodo, type Resolvers } from "./types/types";
-import { typeDefs } from "./graphql/typedefs";
+import { typeDefs, resolvers } from "./graphql/schema";
+
 
 // const todos: typeTodo[] = [
 //   {
@@ -17,119 +22,16 @@ import { typeDefs } from "./graphql/typedefs";
 //   }
 // ];
 
-
-
-// 直接graphQLのクエリ文を書くのではなくprismaを介してtypescriptでおこなう
-// SQLのクエリを実行するのが@prisma/client
 const prismaInstance = new PrismaClient();
-// prismaの文脈を通して...の意味。QueryやMutationの引数で渡す
-type Context = {
-  prismaInstance: PrismaClient;
-};
 
-// データ取得と処理内容(typeDefsで定義したものを使う)
-const resolvers: Resolvers = {
-  Query: { // Queryはget
-    // getTodos: (): typeTodo[] => todos
+const app = express();
+const httpsServer = createServer(app);
 
-    getTodos: async ( _: typeTodo, __: typeTodo[], context: Context ): Promise<{ id: number, title: string, completed: boolean; }[]> => {
-      // sql文を直接操作するのではなく、prismaのメソッドを介して操作する。
-      const todos: typeTodo[] = await context.prismaInstance.todo.findMany();
-
-      // DBから取ってきて必要なものだけ使う
-      return todos.map( todo => ( {
-        id: todo.id,
-        title: todo.title,
-        completed: todo.completed
-      } ) );
-
-    }
-  },
-
-  Mutation: { // Mutationはcreate(post), update(put), delete(patch)
-    //   // 関数名(data: {オブジェクト}) dataは1件のオブジェクト
-    // addTodo: ( _: typeTodo, { title }: { title: string } ): typeTodo => {
-    //   const newTodo: typeTodo = {
-    //     id: String( todos.length + 1 ),
-    //     title,
-    //     completed: false,
-    //   };
-
-    //   todos.push( newTodo );
-    //   return newTodo;
-    // },
-
-    addTodo: async ( _: typeTodo, { title }: { title: string; }, context: Context ): Promise<{ id: number, title: string, completed: boolean; }> => {
-      const todo: typeTodo = await context.prismaInstance.todo.create( {
-        data: {
-          title,
-          completed: false
-        }
-      } );
-
-      return {
-        id: todo.id,
-        title: todo.title,
-        completed: todo.completed
-      };
-
-    },
-
-    //   updateTodo: ( _: typeTodo, { id, completed }: { id: string, completed: boolean; } ): typeTodo => {
-    //     // console.log(id, typeof id);
-    //     const update_todo: typeTodo | undefined = todos.find( ( todo: typeTodo ): boolean => todo.id === id );
-    //     // console.log(update_todo);
-
-    //     if ( update_todo === undefined ) {
-    //       throw new Error( "ありません" );
-    //     } else {
-    //       update_todo.completed = completed; // 引数で受け取ったcompletedをupdate_todoのプロパティcompletedの値に代入する
-    //       return update_todo;
-    //     }
-    //   },
-
-    updateTodo: async ( _: typeTodo, { id, completed }: { id: number, completed: boolean; }, context: Context ): Promise<{ id: number, completed: boolean; }> => {
-      const todo: typeTodo = await context.prismaInstance.todo.update( {
-        where: { id },
-        data: { completed }
-      } );
-
-      return {
-        id: todo.id,
-        completed: todo.completed,
-      };
-    },
-
-    //   deleteTodo: ( _: typeTodo, { id }: { id: string; } ): typeTodo => {
-    //     const delete_todo_id: number = todos.findIndex( ( todo: typeTodo ): boolean => todo.id === id );
-
-    //     if ( delete_todo_id === -1 ) {
-    //       throw new Error( "そのidはありません" );
-    //     } else {
-    //       // console.log(todos);
-    //       console.log( todos[ delete_todo_id ] );
-    //       const deleted: typeTodo[] = todos.splice( delete_todo_id, 1 ); // todos[]の中から選択されたインデックスの要素を削除したものを返す
-    //       // console.log(deleted); 削除すると選択されたオブジェクトが入った配列(1個)
-    //       // console.log(deleted[0]); // 1つだけ入っている配列の要素
-    //       return deleted[ 0 ];
-    //       // return todos[delete_todo_id];
-
-    //     }
-    //   }
-
-    deleteTodo: async ( _: typeTodo, { id }: { id: number; }, context: Context ): Promise<{ id: number, title: string, completed: boolean; }> => {
-      const todo: typeTodo = await context.prismaInstance.todo.delete( {
-        where: { id }
-      } );
-
-      return {
-        id: todo.id,
-        title: todo.title,
-        completed: todo.completed
-      };
-    }
-  }
-};
+app.get("/", (_req, res) => {
+  res.json({
+    data: "🚀 Server is working..."
+  });
+});
 
 // サーバー(GraphQLに必要なtypeDefsとresolversを引数として渡す)
 const apolloserver = new ApolloServer( {
@@ -137,18 +39,36 @@ const apolloserver = new ApolloServer( {
   resolvers,
 } );
 
-
-async function listenServer (): Promise<void> {
-  const { url } = await startStandaloneServer( apolloserver, {
-    context: async (): Promise<{ prismaInstance: PrismaClient; }> => ( { prismaInstance } ),
-    listen: {
-      port: 4000,
-    },
-  } );
-  console.log( `Server ready at: ${ url }` );
+async function listenServer(): Promise<void> {
+  await apolloserver.start();
+  app.use("/todos",
+    cors<cors.CorsRequest>({
+      origin: 'http://localhost:5173', // アクセスを許可するorigin
+      credentials: true, // レスポンスヘッダーにAccess-Control-Allow-Credentials追加
+      optionsSuccessStatus: 200
+    }),
+    express.json(),
+    expressMiddleware(apolloserver, {
+    context: async (): Promise<{prismaInstance: PrismaClient}> => ({prismaInstance})
+  }));
+  httpsServer.listen({port: process.env.PORT});
+  console.log(`🚀 Express listen at http://localhost:${process.env.PORT}`);
+  console.log(`🚀🚀🚀 GraphQL Server listen at http://localhost:${process.env.PORT}/todos 😀😀😀`);
 }
 
 listenServer();
+
+
+// async function listenServer (): Promise<void> {
+//   const { url } = await startStandaloneServer( apolloserver, {
+//     context: async (): Promise<{ prismaInstance: PrismaClient; }> => ( { prismaInstance } ),
+//     listen: {
+//       port: 4000,
+//     },
+//   } );
+//   console.log( `Server ready at: ${ url }` );
+// }
+
 
 // const { url } = await startStandaloneServer( apolloserver, {
 //   context: async (): Promise<{ prismaInstance: PrismaClient; }> => ( { prismaInstance } ),
