@@ -1,4 +1,5 @@
 import { ApolloServer } from "@apollo/server";
+import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer';
 // import { startStandaloneServer } from "@apollo/server/standalone";
 import express  from "express";
 import { createServer } from "http";
@@ -25,7 +26,7 @@ import { typeDefs, resolvers } from "./graphql/schema";
 const prismaInstance = new PrismaClient();
 
 const app = express();
-const httpsServer = createServer(app);
+const httpServer = createServer(app);
 
 app.get("/", (_req, res) => {
   res.json({
@@ -37,6 +38,7 @@ app.get("/", (_req, res) => {
 const apolloserver = new ApolloServer( {
   typeDefs,
   resolvers,
+  plugins: [ApolloServerPluginDrainHttpServer({httpServer})]
 } );
 
 async function listenServer(): Promise<void> {
@@ -51,7 +53,7 @@ async function listenServer(): Promise<void> {
     expressMiddleware(apolloserver, {
     context: async (): Promise<{prismaInstance: PrismaClient}> => ({prismaInstance})
   }));
-  httpsServer.listen({port: process.env.PORT});
+  httpServer.listen({port: process.env.PORT});
   console.log(`🚀 Express listen at http://localhost:${process.env.PORT}`);
   console.log(`🚀🚀🚀 GraphQL Server listen at http://localhost:${process.env.PORT}/todos 😀😀😀`);
 }
